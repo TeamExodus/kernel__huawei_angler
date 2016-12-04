@@ -163,7 +163,7 @@ CCACHE := $(shell which ccache)
 # SUBARCH tells the usermode build what the underlying arch is.  That is set
 # first, and if a usermode build is happening, the "ARCH=um" on the command
 # line overrides the setting of ARCH below.  If a native build is happening,
-# then ARCH is assigned, getting whatever value it gets normally, and 
+# then ARCH is assigned, getting whatever value it gets normally, and
 # SUBARCH is subsequently ignored.
 
 SUBARCH := $(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
@@ -197,7 +197,7 @@ ARCH		?= arm64
 CROSS_COMPILE	?= $(CCACHE) $(CONFIG_CROSS_COMPILE:"%"=%)
 
 # Architecture as present in compile.h
-UTS_MACHINE := $(ARCH)
+UTS_MACHINE 	:= $(ARCH)
 SRCARCH 	:= $(ARCH)
 
 # Additional ARCH settings for x86
@@ -242,8 +242,8 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = $(CCACHE) gcc
 HOSTCXX      = $(CCACHE) g++
-HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89
-HOSTCXXFLAGS = -O2
+HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O3 -fomit-frame-pointer -std=gnu89
+HOSTCXXFLAGS = -O3
 
 # Decide whether to build built-in, modular, or both.
 # Normally, just do built-in.
@@ -286,7 +286,7 @@ export KBUILD_CHECKSRC KBUILD_SRC KBUILD_EXTMOD
 #         cmd_cc_o_c       = $(CC) $(c_flags) -c -o $@ $<
 #
 # If $(quiet) is empty, the whole command will be printed.
-# If it is set to "quiet_", only the short version will be printed. 
+# If it is set to "quiet_", only the short version will be printed.
 # If it is set to "silent_", nothing will be printed at all, since
 # the variable $(silent_cmd_cc_o_c) doesn't exist.
 #
@@ -326,8 +326,13 @@ include $(srctree)/scripts/Kbuild.include
 # Make variables (CC, etc...)
 
 AS		= $(CROSS_COMPILE)as
-LD		= $(CROSS_COMPILE)ld.bfd
+LD		= $(CROSS_COMPILE)ld
+LD		+= -O3 --strip-debug
 CC		= $(CROSS_COMPILE)gcc
+CC		+= -O3 -mcpu=cortex-a57.cortex-a53 -mtune=cortex-a57.cortex-a53
+CC		+= -fmodulo-sched -fmodulo-sched-allow-regmoves
+CC		+= -fgraphite-identity -floop-block -floop-interchange -floop-strip-mine
+CC		+= -ftree-loop-linear -ftree-loop-distribution
 CPP		= $(CC) -E
 AR		= $(CROSS_COMPILE)ar
 NM		= $(CROSS_COMPILE)nm
@@ -341,34 +346,15 @@ DEPMOD		= /sbin/depmod
 PERL		= perl
 CHECK		= sparse
 
-# fall back to -march=armv8-a+crypto in case the compiler isn't compatible
-# with -mcpu and -mtune
-ARM_ARCH_OPT := -mcpu=cortex-a57.cortex-a53 -mtune=cortex-a57.cortex-a53
-GEN_OPT_FLAGS := $(call cc-option,$(ARM_ARCH_OPT),-march=armv8-a+crypto) \
- -g0 \
- -DNDEBUG \
- -fomit-frame-pointer \
- -fmodulo-sched \
- -fmodulo-sched-allow-regmoves \
- -fivopts
-
-ABYSS_FLAGS 	:= $(GEN_OPT_FLAGS) -pipe \
-		   -ffast-math -fsingle-precision-constant -fsched-spec-load \
-		   -fpredictive-commoning -fgcse-after-reload -fgcse-sm \
-		   -fno-pic -mno-android
-
-# Use the wrapper for the compiler.  This wrapper scans for new
-# warnings and causes the build to stop upon encountering them.
-# CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
-
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
-CFLAGS_MODULE   = -DMODULE $(ABYSS_FLAGS)
-AFLAGS_MODULE   = -DMODULE $(ABYSS_FLAGS)
+CFLAGS_MODULE   =
+AFLAGS_MODULE   =
 LDFLAGS_MODULE  = --strip-debug
-CFLAGS_KERNEL	= $(ABYSS_FLAGS)
-AFLAGS_KERNEL	= $(ABYSS_FLAGS)
+CFLAGS_KERNEL	=
+AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
+
 
 # Use USERINCLUDE when you must reference the UAPI directories only.
 USERINCLUDE    := \
@@ -376,7 +362,7 @@ USERINCLUDE    := \
 		-Iarch/$(hdr-arch)/include/generated/uapi \
 		-I$(srctree)/include/uapi \
 		-Iinclude/generated/uapi \
-                -include $(srctree)/include/linux/kconfig.h
+        -include $(srctree)/include/linux/kconfig.h
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
@@ -394,8 +380,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks \
-		   -std=gnu89 \
-           $(ABYSS_FLAGS)
+		   -std=gnu89
 
 # Thanks gcc!
 KBUILD_CFLAGS   += -Wno-trigraphs -Wno-unused-label -Wno-array-bounds -Wno-memset-transposed-args \
@@ -404,9 +389,11 @@ KBUILD_CFLAGS   += -Wno-trigraphs -Wno-unused-label -Wno-array-bounds -Wno-memse
                    -Wno-misleading-indentation -Wno-bool-compare -Wno-int-conversion \
                    -Wno-discarded-qualifiers -Wno-tautological-compare -Wno-incompatible-pointer-types
 
+KBUILD_AFLAGS_KERNEL :=
+KBUILD_CFLAGS_KERNEL :=
 KBUILD_AFLAGS   := -D__ASSEMBLY__
-KBUILD_AFLAGS_MODULE  := -DMODULE $(ABYSS_FLAGS)
-KBUILD_CFLAGS_MODULE  := -DMODULE $(ABYSS_FLAGS)
+KBUILD_AFLAGS_MODULE  := -DMODULE
+KBUILD_CFLAGS_MODULE  := -DMODULE
 KBUILD_LDFLAGS_MODULE := -T $(srctree)/scripts/module-common.lds
 
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
@@ -601,7 +588,7 @@ all: vmlinux
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialized,)
 else
-KBUILD_CFLAGS	+= -O2
+KBUILD_CFLAGS	+= -O3
 endif
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
@@ -694,7 +681,7 @@ NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
 CHECKFLAGS     += $(NOSTDINC_FLAGS)
 
 # warn about C99 declaration after statement
-# KBUILD_CFLAGS += $(call cc-option,-Wdeclaration-after-statement,)
+KBUILD_CFLAGS += $(call cc-option,-Wdeclaration-after-statement,)
 
 # disable pointer signed / unsigned warnings in gcc 4.0
 KBUILD_CFLAGS += $(call cc-disable-warning, pointer-sign)
@@ -829,7 +816,7 @@ ifdef CONFIG_BUILD_DOCSRC
 endif
 	+$(call if_changed,link-vmlinux)
 
-# The actual objects are generated when descending, 
+# The actual objects are generated when descending,
 # make sure no implicit rule kicks in
 $(sort $(vmlinux-deps)): $(vmlinux-dirs) ;
 
@@ -1438,7 +1425,7 @@ endif
 	$(build)=$(build-dir) $(@:.ko=.o)
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
 
-# FIXME Should go into a make.lib or something 
+# FIXME Should go into a make.lib or something
 # ===========================================================================
 
 quiet_cmd_rmdirs = $(if $(wildcard $(rm-dirs)),CLEAN   $(wildcard $(rm-dirs)))
@@ -1480,3 +1467,4 @@ FORCE:
 # Declare the contents of the .PHONY variable as phony.  We keep that
 # information in a variable so we can use it in if_changed and friends.
 .PHONY: $(PHONY)
+
